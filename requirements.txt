@@ -1,0 +1,21 @@
+# Core Strands Agents framework
+strands-agents
+strands-agents-tools
+
+# Anthropic Claude model support
+strands-agents[anthropic]
+
+# Environment variable management
+python-dotenv
+
+# Color coding for terminal output
+colorama
+
+# Jupyter notebook support (for the notebook version)
+ipykernel
+
+
+# Pretty printing and JSON formatting
+# (These are typically included with Python, but listed for completeness)
+# pprint - built-in
+# json - built-in

@@ -26,7 +26,64 @@ from strands_tools import editor, shell
 # Claude model integration
 from strands.models.anthropic import AnthropicModel
 
+# Hooks for logging tool invocations
+from strands.hooks import HookProvider, HookRegistry
+from strands.experimental.hooks import BeforeToolInvocationEvent
+
+# Color coding for better visibility
+from colorama import Fore, Back, Style, init
+
 from dotenv import load_dotenv
+
+# Initialize colorama for color coding
+init(autoreset=True)  # Automatically reset colors after each print
+
+
+# Color-coded logging hook for tool invocations before they are executed
+class LoggingHook(HookProvider):
+    def register_hooks(self, registry: HookRegistry) -> None:
+        registry.add_callback(BeforeToolInvocationEvent, self.log_start)
+
+    def log_start(self, event: BeforeToolInvocationEvent) -> None:
+        # Color-coded output for better visibility
+        print(f"{Fore.CYAN}{'='*60}")
+        print(f"{Fore.YELLOW}🔧 TOOL INVOCATION")
+        print(f"{Fore.CYAN}{'='*60}")
+        print(f"{Fore.GREEN}Agent: {Fore.WHITE}{event.agent.name}")
+        print(f"{Fore.BLUE}Tool: {Fore.WHITE}{event.tool_use['name']}")
+        print(f"{Fore.MAGENTA}Input Parameters:")
+        
+        # Pretty print the input with color coding
+        import json
+        formatted_input = json.dumps(event.tool_use['input'], indent=2)
+        for line in formatted_input.split('\n'):
+            print(f"{Fore.WHITE}  {line}")
+        
+        print(f"{Fore.CYAN}{'='*60}")
+
+
+# Color-coded agent response wrapper
+def run_agent_with_colors(agent, prompt):
+    """
+    Run the agent with a prompt and display the response with color coding.
+    This makes it easier to distinguish between different types of output.
+    """
+    print(f"{Fore.GREEN}{'='*80}")
+    print(f"{Fore.YELLOW}🤖 AGENT REQUEST")
+    print(f"{Fore.GREEN}{'='*80}")
+    print(f"{Fore.CYAN}Prompt: {Fore.WHITE}{prompt}")
+    print(f"{Fore.GREEN}{'='*80}")
+    print(f"{Fore.YELLOW}📝 Agent Response:")
+    print(f"{Fore.GREEN}{'='*80}")
+    
+    # Run the agent and capture the result
+    result = agent(prompt)
+    
+    print(f"{Fore.GREEN}{'='*80}")
+    print(f"{Fore.YELLOW}✅ AGENT RESPONSE COMPLETE")
+    print(f"{Fore.GREEN}{'='*80}")
+    
+    return result
 
 
 # Load environment variables from the .env file
@@ -143,6 +200,7 @@ agent = Agent(
     system_prompt=SYSTEM_PROMPT,  # The instructions we defined earlier
     model=anthropic_model,        # The Claude 4 model we configured
     tools=[editor, shell],        # Tools for file operations and shell commands
+    hooks=[LoggingHook()],        # Hooks for color-coded logging of tool invocations
     
     # This is critical for self-extending functionality:
     # When set to True, the agent can dynamically load tools it creates
@@ -173,23 +231,71 @@ For each tool:
 After creating all tools, summarize which tools you've created, which tests were run, and all the results obtained.
 """
 
-# Interactive loop to query the self-extending agent
-print("Welcome to the self-extending agent demo!")
-print("Type 'exit' or 'quit' to end the session.")
-print("Example queries:")
-print("- Create a tool to add two numbers")
-print("- Create a tool to fetch weather data")
-print("- Create a tool to send a message")
-print("- Create a tool to calculate compound interest")
-while True:
+# Test the color coding system
+def test_color_coding():
+    """Test the color coding system to ensure it's working properly."""
+    print(f"{Fore.GREEN}Testing color coding system...")
+    print(f"{Fore.RED}Red text for errors")
+    print(f"{Fore.GREEN}Green text for success")
+    print(f"{Fore.YELLOW}Yellow text for warnings")
+    print(f"{Fore.BLUE}Blue text for information")
+    print(f"{Fore.MAGENTA}Magenta text for highlights")
+    print(f"{Fore.CYAN}Cyan text for separators")
+    print(f"{Fore.WHITE}White text for normal content")
+    print(f"{Fore.GREEN}{'='*50}")
+    print(f"{Fore.YELLOW}Color coding test complete!")
+    print(f"{Fore.GREEN}{'='*50}")
 
-    query = input("\nUser> ").strip()
 
-    if query == "":
-        continue
+# Run the default prompt first
+print(f"{Fore.GREEN}{'='*80}")
+print(f"{Fore.YELLOW}🤖 Self-Extending Agent Demo")
+print(f"{Fore.GREEN}{'='*80}")
+print(f"{Fore.CYAN}Running default prompt to create and test tools...")
+print(f"{Fore.GREEN}{'='*80}")
 
-    if query.lower() in ["exit", "quit"]:
-        print("\nGoodbye!")
-        break
-    
-    agent(query)
+# Execute the default prompt
+result = run_agent_with_colors(agent, prompt)
+
+# Ask if user wants to continue with interactive mode
+print(f"\n{Fore.GREEN}{'='*60}")
+print(f"{Fore.YELLOW}🎯 Default Demo Complete!")
+print(f"{Fore.GREEN}{'='*60}")
+print(f"{Fore.CYAN}The agent has created and tested the requested tools.")
+print(f"{Fore.WHITE}Would you like to continue with interactive mode? (y/n): ", end="")
+
+continue_interactive = input().strip().lower()
+
+if continue_interactive in ['y', 'yes']:
+    # Interactive loop to query the self-extending agent
+    print(f"\n{Fore.GREEN}{'='*60}")
+    print(f"{Fore.YELLOW}🤖 Interactive Mode")
+    print(f"{Fore.GREEN}{'='*60}")
+    print(f"{Fore.CYAN}Welcome to interactive mode!")
+    print(f"{Fore.WHITE}Type 'exit' or 'quit' to end the session.")
+    print(f"{Fore.WHITE}Type 'test' to test the color coding system.")
+    print(f"{Fore.BLUE}Example queries:")
+    print(f"{Fore.WHITE}- Create a tool to add two numbers")
+    print(f"{Fore.WHITE}- Create a tool to fetch weather data")
+    print(f"{Fore.WHITE}- Create a tool to send a message")
+    print(f"{Fore.WHITE}- Create a tool to calculate compound interest")
+    print(f"{Fore.GREEN}{'='*60}")
+
+    while True:
+        query = input(f"\n{Fore.YELLOW}User> {Fore.WHITE}").strip()
+
+        if query == "":
+            continue
+
+        if query.lower() in ["exit", "quit"]:
+            print(f"\n{Fore.GREEN}Goodbye!")
+            break
+        
+        if query.lower() == "test":
+            test_color_coding()
+            continue
+        
+        # Use the color-coded wrapper for agent interactions
+        run_agent_with_colors(agent, query)
+else:
+    print(f"\n{Fore.GREEN}Demo complete! Goodbye!")
