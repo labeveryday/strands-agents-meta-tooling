@@ -61,7 +61,7 @@ python self_extending_agent.py
 jupyter notebook self_extending_notebook.ipynb
 ```
 
-**Note**: The `tools/` directory is already created in this repository. This is where the agent will generate new Python tools during runtime.
+**Note**: The `tools/` directory is already created in this repository. This is where the agent will generate new Python tools during runtime and is required.
 
 ## Example Output
 
@@ -75,7 +75,6 @@ When you run the demo, the agent will:
 
 ## Learn More
 
-- 📖 **[Read the full blog post](https://duanlightfoot.com/posts/2025-09-21-agents-that-write-their-own-tools-meta-tooling-with-strands-agents/)** - Deep dive into how self-extending agents work and practical implementation tips
 - 📚 [Strands Agents Meta-Tooling Documentation](https://strandsagents.com/latest/documentation/docs/examples/python/meta_tooling/) - Official documentation for meta-tooling with Strands
 
 ## Connect
