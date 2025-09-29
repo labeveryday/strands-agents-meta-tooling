@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 # Initialize colorama for color coding
 init(autoreset=True)
 
+TOOL_CALLS = 0
 
 # Color-coded logging hook for tool invocations before they are executed
 class LoggingHook(HookProvider):
@@ -30,6 +31,8 @@ class LoggingHook(HookProvider):
 
     def log_start(self, event: BeforeToolInvocationEvent) -> None:
         """Logs the tool invocation details."""
+        global TOOL_CALLS
+        TOOL_CALLS += 1
         print(f"{Fore.GREEN}{'='*60}")
         # Color-coded output for better visibility
         print(f"{Fore.CYAN}{'='*60}")
@@ -39,8 +42,12 @@ class LoggingHook(HookProvider):
         print(f"{Fore.BLUE}Tool: {Fore.WHITE}{event.tool_use['name']}")
         print(f"{Fore.MAGENTA}Input Parameters:")
 
-        # Pretty print the input with color coding
-        formatted_input = json.dumps(event.tool_use['input'], indent=2)
+        # Pretty print the input with color coding, masking passwords
+        input_data = event.tool_use['input'].copy()
+        if 'password' in input_data:
+            input_data['password'] = "********"
+        
+        formatted_input = json.dumps(input_data, indent=2)
         for line in formatted_input.split('\n'):
             print(f"{Fore.WHITE}  {line}")
 
@@ -53,7 +60,9 @@ def run_agent_with_colors(agent, prompt):
     Run the agent with a prompt and display the response with color coding.
     This makes it easier to distinguish between different types of output.
     """
-    print(f"Agent's current list of tools: {agent.tool_names}")
+    print("Agent's current list of tools:")
+    for tool in agent.tool_names:
+        print(f"{Fore.WHITE}  - {tool}")
     print(f"{Fore.GREEN}{'='*80}")
     print(f"{Fore.YELLOW}🤖 AGENT REQUEST")
     print(f"{Fore.GREEN}{'='*80}")
@@ -66,8 +75,10 @@ def run_agent_with_colors(agent, prompt):
     result = agent(prompt)
 
     print(f"{Fore.GREEN}{'='*80}")
-    print(f"{Fore.YELLOW}✅ AGENT RESPONSE COMPLETE")
-    print(f"Agent's updated list of tools: {agent.tool_names}")
+    print(f"{Fore.YELLOW}✅ AGENT RESPONSE COMPLETE\n")
+    print("Agent's updated list of tools:")
+    for tool in agent.tool_names:
+        print(f"{Fore.WHITE}  - {tool}")
     print(f"{Fore.GREEN}{'='*80}")
 
     return result
@@ -116,55 +127,65 @@ anthropic_model = AnthropicModel(
 )
 
 # Define the system prompt to guide the agent's behavior
-
 SYSTEM_PROMPT = f"""
-You are a specialized network engineering agent capable of creating Python tools and using them to solve network challenges.
+You are a network automation expert that creates Python tools to solve network challenges.
 
-GOALS:
-    - Create Python tools under cwd()/tools/*.py using the tool decorator
-    - Each tool should be well-documented with clear docstrings and type hints
-    - Use netmiko for network device connections (preferred over paramiko)
-    - After writing a tool, you can use it immediately (hot-reloading enabled)
-    - Create comprehensive unit tests for each tool under cwd()/tools/tests/test_*.py
-    - Verify tests work by running them with pytest
-    - Debug and fix any issues found during testing
+CAPABILITIES:
+- Create Python tools under tools/*.py using the @tool decorator
+- Tools are HOT-RELOADED automatically after creation - you can call them directly by name
+- You have access to netmiko for device connections
 
-NETWORK STANDARDS:
-    - Follow organizational security policies
-    - Use connection timeouts and error handling
-    - Generate compliance reports in CSV format
-    - Document all network changes and findings
+CRITICAL INSTRUCTION:
+After creating a tool with @tool decorator, it becomes immediately available as a callable tool.
+DO NOT run tools using shell/python commands. Use them directly as tools.
+IF YOU RUN THE TOOL AND IT FAILS DUE TO NETMIKO NOT INSTALLED, INSTALL IT FIRST. THEN RUN THE TOOL AGAIN.
+
+❌ WRONG: shell("python tools/check_compliance.py")
+❌ WRONG: shell("cd tools && python router_connection.py")
+✅ CORRECT: check_compliance(hostname="{CISCO_DEVICE_HOSTNAME}")
+✅ CORRECT: router_connection(host="{CISCO_DEVICE_HOSTNAME}")
+
+WORKFLOW:
+1. Understand the requirement
+2. Create tool using editor with @tool decorator
+3. Call the tool directly by its function name (it's now available!)
+4. Show the results
 
 TOOL TEMPLATE:
     from strands import tool
-
+    
     @tool
-    def tool_name(param1: type, param2: type) -> return_type:
-        '''
-        Clear description of what the tool does.
+    def tool_name(param: type) -> return_type:
+        '''Brief description.
         
         Args:
-            param1: Description of parameter 1
-            param2: Description of parameter 2
+            param: What this parameter does
             
         Returns:
-            Description of return value
-            
-        Raises:
-            ErrorType: When and why this error might occur
+            What this returns
         '''
         # Implementation
         return result
 
-Lab Environment Credentials:
-    - Device Type: {CISCO_DEVICE_TYPE}
-    - Device Hostname: {CISCO_DEVICE_HOSTNAME}
-    - Device Username: {CISCO_DEVICE_USERNAME}
-    - Device Password: {CISCO_DEVICE_PASSWORD}
-    - Port: {CISCO_DEVICE_PORT}
-    - Device Port: {CISCO_DEVICE_PORT}
+After writing this to tools/tool_name.py, you can immediately call:
+tool_name(param=value)
 
-NOTE: Use the new hot loaded tools and not the python files when testing the lab environment.
+LAB DEVICE:
+- Type: {CISCO_DEVICE_TYPE}
+- Host: {CISCO_DEVICE_HOSTNAME}
+- Username: {CISCO_DEVICE_USERNAME}
+- Password: {CISCO_DEVICE_PASSWORD}
+- Port: {CISCO_DEVICE_PORT}
+
+IMPORTANT REMINDERS:
+1. Tools created with @tool decorator are immediately available - no import needed
+2. Never use shell to execute Python files - use the tool directly
+3. The tool function name (not the filename) is what you call
+4. Pass parameters directly to the tool function
+
+Example: If you create tools/check_interfaces.py with function check_interfaces(),
+you use it by calling: check_interfaces(host="{CISCO_DEVICE_HOSTNAME}")
+NOT by running: shell("python tools/check_interfaces.py") nor cd tools && python -c .....
 """
 
 # Create self-extending agent with Anthropic Claude 4
@@ -183,22 +204,15 @@ agent = Agent(
 
 # Define the prompt for the agent
 PROMPT = """
-Create an interface description compliance tool for branch routers.
+Create a tool to check if router interfaces have proper descriptions.
 
-REQUIREMENTS:
-  - All active interfaces must have descriptions
-  - Descriptions must follow: <LOCATION>_<PEER>_<CIRCUIT-ID>
-  - Example: "NYC_AWS_DIRECT_CKT123"
-  - Identify interfaces status "up" or "down"
+Requirements:
+- Connect to our lab router via SSH  
+- Check all interfaces for descriptions
+- Flag any without the pattern: LOCATION_PEER_CIRCUIT
+- Generate a fix list
 
-BUILD TOOLS TO:
-  1. Connect to router via SSH
-  2. Get interface list with descriptions
-  3. Identify non-compliant interfaces
-  4. Generate fix commands
-  5. Create CSV report
-
-Test with our lab router and document findings. 
+Use the tools to get the results.
 """
 
 # Run the default prompt first
@@ -216,3 +230,4 @@ print(f"\n{Fore.GREEN}{'='*60}")
 print(f"{Fore.YELLOW}🎯 Default Demo Complete!")
 print(f"{Fore.GREEN}{'='*60}")
 print(f"{Fore.CYAN}The agent has created and tested the requested tools.")
+print(f"{Fore.CYAN}Total tool calls: {TOOL_CALLS}")

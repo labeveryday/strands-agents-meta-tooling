@@ -12,7 +12,7 @@ python-dotenv
 colorama
 
 # Jupyter notebook support (for the notebook version)
-ipykernel
+#ipykernel
 
 
 # Pretty printing and JSON formatting
