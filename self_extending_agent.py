@@ -208,6 +208,8 @@ agent = Agent(
     load_tools_from_directory=True
 )
 
+print(f"List of tools available to the agent: {agent.tool_names}")
+
 # Define the prompt for the agent
 # This prompt asks the agent to create multiple tools and solve specific problems
 # It includes clear expectations for testing and demonstration
@@ -262,6 +264,7 @@ print(f"\n{Fore.GREEN}{'='*60}")
 print(f"{Fore.YELLOW}🎯 Default Demo Complete!")
 print(f"{Fore.GREEN}{'='*60}")
 print(f"{Fore.CYAN}The agent has created and tested the requested tools.")
+print(f"Agent new current list of tools: {agent.tool_names}")
 print(f"{Fore.WHITE}Would you like to continue with interactive mode? (y/n): ", end="")
 
 continue_interactive = input().strip().lower()
